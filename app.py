@@ -55,16 +55,16 @@ def main():
                     if  command not in ACTIVE:
                         # Add Metric
                         print(f"Adding {command.name}")
-                        # Send availability using gRPC
+                        # Send availability using gRPC - matching ExternalSensorAvailability format
                         availability_struct = Struct()
                         availability_struct.update({
                             "metrics": [command.name],
                             "type": command.desc,
                             "id": command.name,
-                            "is_available": True,
+                            "isAvailable": True,
                         })
                         availability_request = edgehub_pb2.SendDataRequest(
-                            topic_name="edgehub/sensors/availability",
+                            topic_name="edgehub/obd/availability",
                             fields=availability_struct
                         )
                         try:
@@ -74,20 +74,26 @@ def main():
                             print(f"Error sending availability: {e}")
                         ACTIVE.add(command)
 
-                    # Send sensor data using gRPC
+                    # Send sensor data using gRPC - matching SensorDatapoint format
                     data_struct = Struct()
                     data_struct.update({
-                        "sensor_id": command.name,
-                        "timestamp": timestamp.ToMilliseconds(),
-                        "value": resp.value.magnitude,
-                        "channel_name": command.name,
-                        "channel_unit": str(resp.value.units),
-                        "channel_type": command.desc,
-                        "is_sensor_enabled": True,
-                        "is_anomaly_enabled": False,
+                        "sensorId": command.name,
+                        "timestamp": {
+                            "seconds": int(timestamp.ToMilliseconds() // 1000),
+                            "nanos": int((timestamp.ToMilliseconds() % 1000) * 1000000)
+                        },
+                        "value": float(resp.value.magnitude),
+                        "channel": {
+                            "name": command.name,
+                            "unit": str(resp.value.units),
+                            "type": command.desc
+                        },
+                        "isSensorEnabled": True,
+                        "isAnomalyEnabled": False
                     })
+                    # Use the correct topic pattern that SDK expects for sensors
                     data_request = edgehub_pb2.SendDataRequest(
-                        topic_name=f"edgehub/sensors/{command.name}/data",
+                        topic_name=f"edgehub/obd/{command.name}/values",
                         fields=data_struct
                     )
                     try:
@@ -105,10 +111,10 @@ def main():
                         "metrics": [command.name],
                         "type": command.desc,
                         "id": command.name,
-                        "is_available": False,
+                        "isAvailable": False,
                     })
                     availability_request = edgehub_pb2.SendDataRequest(
-                        topic_name="edgehub/sensors/availability",
+                        topic_name="edgehub/obd/availability",
                         fields=availability_struct
                     )
                     try:
@@ -129,10 +135,10 @@ def main():
                 "metrics": [command.name],
                 "type": command.desc,
                 "id": command.name,
-                "is_available": False,
+                "isAvailable": False,
             })
             availability_request = edgehub_pb2.SendDataRequest(
-                topic_name="edgehub/sensors/availability",
+                topic_name="edgehub/obd/availability",
                 fields=availability_struct
             )
             try:
