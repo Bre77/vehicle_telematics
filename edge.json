@@ -1,4 +1,7 @@
 {
-   "name": "python_sdk",
-   "containerArchive": "docker.tar"
+  "name": "OBD2",
+  "containerArchive": "docker.tar",
+  "usbDevices": [
+    "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A7890YNB-if00-port0"
+  ]
 }

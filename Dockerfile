@@ -5,7 +5,7 @@
 # https://docs.docker.com/engine/reference/builder/
 
 ARG PYTHON_VERSION=3.10.9
-FROM python:${PYTHON_VERSION}-slim as base
+FROM python:${PYTHON_VERSION}-slim AS base
 
 # Prevents Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -33,8 +33,8 @@ RUN adduser \
 # Leverage a bind mount to requirements.txt to avoid having to copy them into
 # into this layer.
 RUN --mount=type=cache,target=/root/.cache/pip \
-   --mount=type=bind,source=requirements.txt,target=requirements.txt \
-   python -m pip install -r requirements.txt
+    --mount=type=bind,source=requirements.txt,target=requirements.txt \
+    python -m pip install -r requirements.txt
 
 # Switch to the non-privileged user to run the application.
 USER appuser
@@ -44,4 +44,4 @@ COPY app.py .
 COPY edgehub edgehub
 
 # Run the application.
-CMD python app.py
+CMD ["python", "app.py"]

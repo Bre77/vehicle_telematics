@@ -1,159 +1,59 @@
 import obd
+from obd.utils import OBDStatus
 import grpc
 import os
 import time
 import edgehub.v3.edgehub_pb2_grpc as edgehub_pb2_grpc
 import edgehub.v3.edgehub_pb2 as edgehub_pb2
 from google.protobuf.struct_pb2 import Struct
-from google.protobuf.timestamp_pb2 import Timestamp
 
-host_ip = os.getenv('SDK_HOSTNAME') or "192.168.1.125"
-host_port = os.getenv('SDK_PORT') or "51051"
+host_ip = os.getenv('SDK_HOSTNAME') or "host.docker.internal"
+host_port = os.getenv('SDK_PORT') or "50051"
 
 obd.Unit.default_format = "~"
 METRICS = [
-    (obd.commands.ELM_VOLTAGE, "OBD Voltage"),
-    (obd.commands.CONTROL_MODULE_VOLTAGE, "ECU Voltage"),
+    (obd.commands.ELM_VOLTAGE, "OBDVoltage"),
+    (obd.commands.CONTROL_MODULE_VOLTAGE, "ECUVoltage"),
     (obd.commands.SPEED, "Speed"),
     (obd.commands.RPM, "RPM"),
-    (obd.commands.INTAKE_TEMP, "Intake Temp"),
-    (obd.commands.RUN_TIME, "Run Time"),
-    (obd.commands.FUEL_LEVEL, "Fuel Level"),
-    (obd.commands.AMBIANT_AIR_TEMP, "Air Temp"),
-    (obd.commands.HYBRID_BATTERY_REMAINING, "Hybrid Battery"),
+    (obd.commands.INTAKE_TEMP, "IntakeTemp"),
+    (obd.commands.RUN_TIME, "RunTime"),
+    (obd.commands.FUEL_LEVEL, "FuelLevel"),
+    (obd.commands.AMBIANT_AIR_TEMP, "AirTemp"),
+    (obd.commands.HYBRID_BATTERY_REMAINING, "HybridBattery"),
     (obd.commands.RELATIVE_ACCEL_POS, "Accelerator"),
-    (obd.commands.ABSOLUTE_LOAD, "Engine Load"),
+    (obd.commands.ABSOLUTE_LOAD, "EngineLoad"),
+    (obd.commands.ENGINE_LOAD, "CalculatedEngineLoad"),
+    (obd.commands.COOLANT_TEMP, "CoolantTemp"),
 ]
 
-def getTime(t=None):
-    t = t or time.time()
-    ts = Timestamp()
-    ts.FromMilliseconds(millis=round(t * 1000))
-    return ts
-
 def main():
-    channel = grpc.insecure_channel(f"{host_ip}:{host_port}")
-    stub = edgehub_pb2_grpc.EdgeHubServiceStub(channel)
 
+    sdk = edgehub_pb2_grpc.EdgeHubServiceStub(
+        grpc.insecure_channel(f"{host_ip}:{host_port}")
+    )
     while True:
         connection = obd.OBD()
-        print(f"Using OBD adapter at {connection.port_name()}")
-        ACTIVE = set()
-
-        while connection.status() in {
-            obd.OBDStatus.OBD_CONNECTED,
-            obd.OBDStatus.CAR_CONNECTED,
-        }:
-            for command, label in METRICS:
+        while connection.status() in {OBDStatus.OBD_CONNECTED, OBDStatus.CAR_CONNECTED}:
+            for command, name in METRICS:
                 if not connection.supports(command):
                     continue
-
                 resp = connection.query(command)
-                timestamp = getTime()
-
-                if not resp.is_null():
-                    if  command not in ACTIVE:
-                        # Add Metric
-                        print(f"Adding {command.name}")
-                        # Send availability using gRPC - matching ExternalSensorAvailability format
-                        availability_struct = Struct()
-                        availability_struct.update({
-                            "metrics": [command.name],
-                            "type": command.desc,
-                            "id": command.name,
-                            "isAvailable": True,
-                        })
-                        availability_request = edgehub_pb2.SendDataRequest(
-                            topic_name="edgehub/obd/availability",
-                            fields=availability_struct
-                        )
-                        try:
-                            response = stub.SendData(availability_request)
-                            print(f"Availability sent: {response}")
-                        except Exception as e:
-                            print(f"Error sending availability: {e}")
-                        ACTIVE.add(command)
-
-                    # Send sensor data using gRPC - matching SensorDatapoint format
+                if resp and not resp.is_null():
                     data_struct = Struct()
                     data_struct.update({
-                        "sensorId": command.name,
-                        "timestamp": {
-                            "seconds": int(timestamp.ToMilliseconds() // 1000),
-                            "nanos": int((timestamp.ToMilliseconds() % 1000) * 1000000)
-                        },
-                        "value": float(resp.value.magnitude),
-                        "channel": {
-                            "name": command.name,
-                            "unit": str(resp.value.units),
-                            "type": command.desc
-                        },
-                        "isSensorEnabled": True,
-                        "isAnomalyEnabled": False
+                        "time": resp.time,
+                        name: resp.value.magnitude,
+                        "unit": resp.value.units
                     })
-                    # Use the correct topic pattern that SDK expects for sensors
                     data_request = edgehub_pb2.SendDataRequest(
-                        topic_name=f"edgehub/obd/{command.name}/values",
+                        topic_name="obd",
                         fields=data_struct
                     )
-                    try:
-                        response = stub.SendData(data_request)
-                        print(f"Data sent for {command.name}: {response}")
-                    except Exception as e:
-                        print(f"Error sending data for {command.name}: {e}")
-
-                elif command in ACTIVE:
-                    # Remove metric
-                    print(f"Removing {command.name}")
-                    # Send unavailability using gRPC
-                    availability_struct = Struct()
-                    availability_struct.update({
-                        "metrics": [command.name],
-                        "type": command.desc,
-                        "id": command.name,
-                        "isAvailable": False,
-                    })
-                    availability_request = edgehub_pb2.SendDataRequest(
-                        topic_name="edgehub/obd/availability",
-                        fields=availability_struct
-                    )
-                    try:
-                        response = stub.SendData(availability_request)
-                        print(f"Unavailability sent: {response}")
-                    except Exception as e:
-                        print(f"Error sending unavailability: {e}")
-                    ACTIVE.remove(command)
+                    sdk.SendData(data_request)
             time.sleep(1-(time.time() % 1))
-
-        print("Car Disconnected")
-        # Remove all active metric
-        for command in list(ACTIVE):  # Create a copy to avoid modification during iteration
-            print(f"Removing {command.name}")
-            # Send unavailability using gRPC
-            availability_struct = Struct()
-            availability_struct.update({
-                "metrics": [command.name],
-                "type": command.desc,
-                "id": command.name,
-                "isAvailable": False,
-            })
-            availability_request = edgehub_pb2.SendDataRequest(
-                topic_name="edgehub/obd/availability",
-                fields=availability_struct
-            )
-            try:
-                response = stub.SendData(availability_request)
-                print(f"Cleanup unavailability sent: {response}")
-            except Exception as e:
-                print(f"Error sending cleanup unavailability: {e}")
-            ACTIVE.remove(command)
-
         connection.close()
         time.sleep(5)
-
-
-    print("=== OBD Scanner completed ===")
-    channel.close()
 
 if __name__ == "__main__":
     main()
