@@ -1,6 +1,6 @@
 .PHONY: protos clean
 
-CONTAINER_NAME := vehicle_telematics
+CONTAINER_NAME := obd
 
 all: edge.tar.gz
 
@@ -16,3 +16,6 @@ edge.tar.gz: docker.tar edge.json
 
 clean:
 	rm -rf docker.tar edge.tar.gz edgehub
+
+test:
+	docker run --rm -it ${CONTAINER_NAME}

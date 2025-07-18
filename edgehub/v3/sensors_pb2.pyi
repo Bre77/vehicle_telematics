@@ -3,8 +3,7 @@ from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from collections.abc import Iterable as _Iterable, Mapping as _Mapping
-from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
+from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -75,7 +74,7 @@ class SensorDatapoint(_message.Message):
     model_type: MLModelType
     mltk_model_id: str
     sensor_category: str
-    def __init__(self, timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., value: _Optional[float] = ..., channel: _Optional[_Union[SensorChannel, _Mapping]] = ..., is_sensor_enabled: bool = ..., is_anomaly_enabled: bool = ..., additional_details: _Optional[bytes] = ..., dimensions: _Optional[_Iterable[_Union[SensorDimension, _Mapping]]] = ..., sensor_id: _Optional[str] = ..., sensor_has_error: bool = ..., model_type: _Optional[_Union[MLModelType, str]] = ..., mltk_model_id: _Optional[str] = ..., sensor_category: _Optional[str] = ...) -> None: ...
+    def __init__(self, timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., value: _Optional[float] = ..., channel: _Optional[_Union[SensorChannel, _Mapping]] = ..., is_sensor_enabled: bool = ..., is_anomaly_enabled: bool = ..., additional_details: _Optional[bytes] = ..., dimensions: _Optional[_Iterable[_Union[SensorDimension, _Mapping]]] = ..., sensor_id: _Optional[str] = ..., sensor_has_error: bool = ..., model_type: _Optional[_Union[MLModelType, str]] = ..., mltk_model_id: _Optional[str] = ..., sensor_category: _Optional[str] = ...) -> None: ...
 
 class ExternalSensorAvailability(_message.Message):
     __slots__ = ("metrics", "type", "id", "is_available", "category")

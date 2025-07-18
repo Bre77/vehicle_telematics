@@ -53,9 +53,9 @@ def main():
                 resp = connection.query(command)
                 if resp and not resp.is_null():
                     send({
-                        "time": resp.time,
-                        name: resp.value.magnitude,
-                        "unit": resp.value.units
+                        "time": int(resp.time    or time.time()),
+                        name: float(resp.value.magnitude),
+                        "unit": str(resp.value.units)
                     })
             time.sleep(1-(time.time() % 1))
         connection.close()
