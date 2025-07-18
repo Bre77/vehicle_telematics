@@ -36,12 +36,15 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=bind,source=requirements.txt,target=requirements.txt \
     python -m pip install -r requirements.txt
 
-# Switch to the non-privileged user to run the application.
-USER appuser
-
-# Copy the source code into the container.
+# Copy the source code into the container before switching users.
 COPY app.py .
 COPY edgehub edgehub
+
+# Change ownership of the copied files to the non-privileged user
+RUN chown -R appuser:appuser /app
+
+# Switch to the non-privileged user to run the application.
+USER appuser
 
 # Run the application.
 CMD ["python", "app.py"]
